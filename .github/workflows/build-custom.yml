@@ -1,0 +1,65 @@
+name: Build Custom Vencord with Plugins
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *' # Run daily to check for upstream updates
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  sync-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Sync with upstream Vencord
+        run: |
+          git remote add upstream https://github.com/Vendicated/Vencord.git
+          git fetch upstream
+          git merge upstream/main --allow-unrelated-histories -X theirs
+          git push origin main
+
+      - name: Install dependencies
+        run: pnpm i
+
+      - name: Add custom plugins
+        run: |
+          cd src
+          mkdir -p userplugins
+          cd userplugins
+          git clone https://github.com/NatsukashiiOwU/vencord_goofy_plugins.git
+          cd ../..
+
+      - name: Build Vencord
+        run: pnpm build
+
+      - name: Package builds
+        run: |
+          pnpm package
+          pnpm package:dir
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "custom-${{ github.sha }}"
+          name: "Custom Vencord Build ${{ github.sha }}"
+          files: |
+            dist/*.asar
+            dist/*.zip
+            dist/*.js
+            dist/*.css
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
