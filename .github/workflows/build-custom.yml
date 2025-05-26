@@ -36,7 +36,9 @@ jobs:
 
       - name: Add custom plugins
         run: |
-          cd src/userplugins
+          cd src
+          mkdir -p userplugins
+          cd userplugins
           git init
           git remote add origin https://github.com/NatsukashiiOwU/vencord_goofy_plugins.git
           git config core.sparseCheckout true
