@@ -34,19 +34,19 @@ jobs:
       - name: Install dependencies
         run: pnpm i
 
-      - name: Add custom plugins
-        run: |
-          rm -rf src/userplugins/* || true
-          mkdir -p src/userplugins
-          cd src/userplugins
-          git init
-          git remote add origin https://github.com/NatsukashiiOwU/vencord_goofy_plugins.git
-          git config core.sparseCheckout true
-          echo "bulkRoles/" >> .git/info/sparse-checkout
-          echo "extractChannelMessages/" >> .git/info/sparse-checkout
-          git pull origin main --depth=1 || { echo "Failed to pull plugins"; exit 1; }
-          cd ../..
-        continue-on-error: false
+      # - name: Add custom plugins
+      #   run: |
+      #     rm -rf src/userplugins/* || true
+      #     mkdir -p src/userplugins
+      #     cd src/userplugins
+      #     git init
+      #     git remote add origin https://github.com/NatsukashiiOwU/vencord_goofy_plugins.git
+      #     git config core.sparseCheckout true
+      #     echo "bulkRoles/" >> .git/info/sparse-checkout
+      #     echo "extractChannelMessages/" >> .git/info/sparse-checkout
+      #     git pull origin main --depth=1 || { echo "Failed to pull plugins"; exit 1; }
+      #     cd ../..
+      #   continue-on-error: false
 
       - name: Build web
         run: pnpm buildWebStandalone
