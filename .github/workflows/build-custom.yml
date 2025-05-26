@@ -36,9 +36,13 @@ jobs:
 
       - name: Add custom plugins
         run: |
-          cd src
-          mkdir -p userplugins
-          git clone https://github.com/NatsukashiiOwU/vencord_goofy_plugins.git userplugins
+          cd src/userplugins
+          git init
+          git remote add origin https://github.com/NatsukashiiOwU/vencord_goofy_plugins.git
+          git config core.sparseCheckout true
+          echo "bulkRoles/" >> .git/info/sparse-checkout
+          echo "extractChannelMessages/" >> .git/info/sparse-checkout
+          git pull origin main
           cd ../..
 
       - name: Build Vencord
