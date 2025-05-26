@@ -69,9 +69,9 @@ jobs:
       - name: Upload DevBuild as release
         if: github.repository == 'NatsukashiiOwU/Vencord' && github.event_name != 'pull_request'
         run: |
-          gh release view custom-devbuild || gh release create custom-devbuild --title "Custom DevBuild $RELEASE_TAG" --notes "Automated dev build"
-          gh release upload custom-devbuild --clobber dist/*
-          gh release edit custom-devbuild --title "Custom DevBuild $RELEASE_TAG"
+          gh release view natsukashii-vencord-dev --repo NatsukashiiOwU/Vencord || gh release create natsukashii-vencord-dev --repo NatsukashiiOwU/Vencord --title "Natsukashii Vencord Dev $RELEASE_TAG" --notes "Automated dev build"
+          gh release upload natsukashii-vencord-dev --repo NatsukashiiOwU/Vencord --clobber dist/*
+          gh release edit natsukashii-vencord-dev --repo NatsukashiiOwU/Vencord --title "Natsukashii Vencord Dev $RELEASE_TAG"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ env.release_tag }}
