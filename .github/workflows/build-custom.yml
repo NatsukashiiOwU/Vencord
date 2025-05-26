@@ -38,8 +38,7 @@ jobs:
         run: |
           cd src
           mkdir -p userplugins
-          cd userplugins
-          git clone https://github.com/NatsukashiiOwU/vencord_goofy_plugins.git
+          git clone https://github.com/NatsukashiiOwU/vencord_goofy_plugins.git userplugins
           cd ../..
 
       - name: Build Vencord
