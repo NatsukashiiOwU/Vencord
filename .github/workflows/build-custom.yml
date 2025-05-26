@@ -16,14 +16,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: pnpm/action-setup@v3 # Install pnpm using packageManager key in package.json
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'pnpm'
-
-      - name: Install pnpm
-        run: npm install -g pnpm
 
       - name: Sync with upstream Vencord
         run: |
