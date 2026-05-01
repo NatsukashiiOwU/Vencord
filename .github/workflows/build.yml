@@ -1,80 +1,138 @@
-name: Build DevBuild
+name: Build Custom Vencord with Plugins
+
 on:
-    push:
-        branches:
-            - main
-        paths:
-            - .github/workflows/build.yml
-            - src/**
-            - browser/**
-            - scripts/build/**
-            - package.json
-            - pnpm-lock.yaml
-env:
-    FORCE_COLOR: true
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *' 
+  workflow_dispatch:
 
 jobs:
-    Build:
-        runs-on: ubuntu-latest
+  sync-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-        steps:
-            - uses: actions/checkout@v4
+      - name: Configure Git
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+      
+      - uses: pnpm/action-setup@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
 
-            - uses: pnpm/action-setup@v3 # Install pnpm using packageManager key in package.json
+      - name: Sync with upstream (preserve our workflows)
+        run: |
+          # Backup our workflow files
+          mkdir -p ../workflow-backup
+          cp -r .github/workflows/* ../workflow-backup/ 2>/dev/null || true
+          
+          # Add upstream remote
+          git remote add upstream https://github.com/Vendicated/Vencord.git
+          git fetch upstream
+          
+          # Check if upstream has new changes
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Already up to date with upstream"
+            exit 0
+          fi
+          
+          # Merge upstream changes
+          git merge upstream/main --allow-unrelated-histories -X theirs --no-commit
+          
+          # Restore OUR workflow files (overwrite upstream's)
+          rm -rf .github/workflows/
+          mkdir -p .github/workflows/
+          cp -r ../workflow-backup/* .github/workflows/ 2>/dev/null || true
+          
+          # Add restored workflows to prevent deletion
+          git add .github/workflows/
+          
+          # Commit merge
+          git commit -m "Merge upstream Vencord changes $(git rev-parse --short upstream/main)" || echo "No changes to commit"
+          
+          # Push changes
+          git push origin main
+          
+          # Cleanup
+          rm -rf ../workflow-backup
 
-            - name: Use Node.js 20
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-                  cache: "pnpm"
+      - name: Install dependencies
+        run: pnpm i
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
+      - name: Add custom plugins
+        run: |
+          rm -rf src/userplugins/* || true
+          mkdir -p src/userplugins
+          cd src/userplugins
+          git clone --depth=1 --filter=blob:none --sparse https://github.com/NatsukashiiOwU/vencord_goofy_plugins.git temp
+          cd temp
+          git sparse-checkout set bulkRoles extractChannelMessages
+          cp -r bulkRoles ../
+          cp -r extractChannelMessages ../
+          cd ..
+          rm -rf temp
+          cd ../..
 
-            - name: Build web
-              run: pnpm buildWebStandalone
+      - name: Build
+        run: pnpm build --standalone
 
-            - name: Build
-              run: pnpm build --standalone
+      - name: Generate plugin list
+        run: pnpm generatePluginJson dist/plugins.json dist/plugin-readmes.json
 
-            - name: Generate plugin list
-              run: pnpm generatePluginJson dist/plugins.json dist/plugin-readmes.json
+      - name: Clean up obsolete files
+        run: |
+          rm -rf dist/*-unpacked dist/vendor Vencord.user.css vencordDesktopRenderer.css vencordDesktopRenderer.css.map
 
-            - name: Clean up obsolete files
-              run: |
-                  rm -rf dist/*-unpacked dist/vendor Vencord.user.css vencordDesktopRenderer.css vencordDesktopRenderer.css.map
+      - name: Get build info
+        id: build_info
+        run: |
+          echo "release_tag=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "build_date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
 
-            - name: Get some values needed for the release
-              id: release_values
-              run: |
-                  echo "release_tag=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - name: Create/Update DevBuild release
+        run: |
+          # Create release if it doesn't exist
+          if ! gh release view natsukashii-vencord-dev --repo ${{ github.repository }} 2>/dev/null; then
+            gh release create natsukashii-vencord-dev \
+              --repo ${{ github.repository }} \
+              --title "Natsukashii Vencord Dev Build" \
+              --notes "Custom Vencord build - automatically synced with upstream" \
+              --prerelease
+          fi
+          
+          # Upload build files
+          for file in dist/extension-chrome.zip dist/extension-firefox.zip dist/Vencord.user.js; do
+            if [ -f "$file" ]; then
+              gh release upload natsukashii-vencord-dev \
+                --repo ${{ github.repository }} \
+                --clobber \
+                "$file"
+            fi
+          done
+          
+          # Update release title
+          gh release edit natsukashii-vencord-dev \
+            --repo ${{ github.repository }} \
+            --title "Natsukashii Vencord - $(git rev-parse --short HEAD) ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Upload DevBuild as release
-              if: github.repository == 'Vendicated/Vencord'
-              run: |
-                  gh release upload devbuild --clobber dist/*
-                  gh release edit devbuild --title "DevBuild $RELEASE_TAG"
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  RELEASE_TAG: ${{ env.release_tag }}
-
-            - name: Upload DevBuild to builds repo
-              if: github.repository == 'Vendicated/Vencord'
-              run: |
-                  git config --global user.name "$USERNAME"
-                  git config --global user.email actions@github.com
-
-                  git clone https://$USERNAME:$API_TOKEN@github.com/$GH_REPO.git upload
-                  cd upload
-
-                  GLOBIGNORE=.git:.gitignore:README.md:LICENSE
-                  rm -rf *
-                  cp -r ../dist/* .
-
-                  git add -A
-                  git commit -m "Builds for https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
-                  git push --force https://$USERNAME:$API_TOKEN@github.com/$GH_REPO.git
-              env:
-                  API_TOKEN: ${{ secrets.BUILDS_TOKEN }}
-                  GH_REPO: Vencord/builds
-                  USERNAME: GitHub-Actions
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vencord-build
+          path: dist/
+          retention-days: 3
