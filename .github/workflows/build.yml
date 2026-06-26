@@ -41,25 +41,15 @@ jobs:
       
       - name: Add custom plugins
         env:
-          # Load the secret into an environment variable
           TOKEN: ${{ secrets.PLUGIN_REPO_TOKEN }}
         run: |
-          rm -rf src/userplugins/* || true
-          mkdir -p src/userplugins
-          cd src/userplugins
+          # Remove the old userplugins folder entirely
+          rm -rf src/userplugins || true
           
-          git init -q
+          # Clone the entire private repo directly into src/userplugins
+          git clone --depth=1 "https://x-access-token:${TOKEN}@github.com/NatsukashiiOwU/vencord_goofy_plugins.git" src/userplugins
           
-          # Inject the token into the URL for authentication
-          # x-access-token is the standard username for GitHub PATs
-          git remote add origin "https://x-access-token:${TOKEN}@github.com/NatsukashiiOwU/vencord_goofy_plugins.git"
-          
-          git config core.sparseCheckout true
-          echo "bulkRoles/" >> .git/info/sparse-checkout
-          echo "extractChannelMessages/" >> .git/info/sparse-checkout
-          
-          git pull origin main --depth=1
-          cd ../..
+          rm -rf src/userplugins/.git
           
       - name: Build
         run: pnpm build --standalone
