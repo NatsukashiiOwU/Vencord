@@ -43,13 +43,12 @@ jobs:
         env:
           TOKEN: ${{ secrets.PLUGIN_REPO_TOKEN }}
         run: |
-          # Remove the old userplugins folder entirely
           rm -rf src/userplugins || true
-          
-          # Clone the entire private repo directly into src/userplugins
           git clone --depth=1 "https://x-access-token:${TOKEN}@github.com/NatsukashiiOwU/vencord_goofy_plugins.git" src/userplugins
-          
+
+          # cleanup
           rm -rf src/userplugins/.git
+          find src/userplugins -maxdepth 1 -type f -delete
           
       - name: Build
         run: pnpm build --standalone
