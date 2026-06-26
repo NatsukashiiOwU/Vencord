@@ -35,22 +35,32 @@ jobs:
           git fetch upstream
           git merge upstream/main --allow-unrelated-histories -X theirs
           git push origin main
+      
       - name: Install dependencies
         run: pnpm i
-
+      
       - name: Add custom plugins
+        env:
+          # Load the secret into an environment variable
+          TOKEN: ${{ secrets.PLUGIN_REPO_TOKEN }}
         run: |
           rm -rf src/userplugins/* || true
           mkdir -p src/userplugins
           cd src/userplugins
-          # Use sparse checkout without initializing a new repo
+          
           git init -q
-          git remote add origin https://github.com/NatsukashiiOwU/vencord_goofy_plugins.git
+          
+          # Inject the token into the URL for authentication
+          # x-access-token is the standard username for GitHub PATs
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/NatsukashiiOwU/vencord_goofy_plugins.git"
+          
           git config core.sparseCheckout true
           echo "bulkRoles/" >> .git/info/sparse-checkout
           echo "extractChannelMessages/" >> .git/info/sparse-checkout
+          
           git pull origin main --depth=1
           cd ../..
+          
       - name: Build
         run: pnpm build --standalone
 
@@ -60,10 +70,12 @@ jobs:
       - name: Clean up obsolete files
         run: |
           rm -rf dist/*-unpacked dist/vendor Vencord.user.css vencordDesktopRenderer.css vencordDesktopRenderer.css.map
+      
       - name: Get release values
         id: release_values
         run: |
           echo "release_tag=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      
       - name: Upload DevBuild as release
         if: github.repository == 'NatsukashiiOwU/Vencord' && github.event_name != 'pull_request'
         run: |
